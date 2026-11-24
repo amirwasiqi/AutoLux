@@ -15,6 +15,7 @@ cd backend
 cp .env.example .env
 # Configure DATABASE_URL
 npm install
+create the database in the pgAdmin
 npm run db:migrate
 npm run dev
 ```
