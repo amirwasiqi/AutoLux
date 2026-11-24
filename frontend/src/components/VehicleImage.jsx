@@ -1,75 +1,66 @@
-import { useEffect, useRef, useState } from 'react';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { useEffect, useMemo, useState } from 'react';
+import { Box, Typography } from '@mui/material';
 
-const allowedLicense = /^(CC BY(?:-SA)?(?:\s|$)|CC0|Public domain|Free Art License|GFDL|GNU Free Documentation)/i;
-const stripHtml = (value = '') => value.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+// Wikimedia Commons is queried by the AutoLux API, avoiding browser-side Commons
+// API/CORS failures. The Unsplash images below are fallbacks only, not model-specific.
+const photoSets = {
+  sedan: [
+    'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1493238792000-8113da705763?auto=format&fit=crop&w=1200&q=85'
+  ],
+  suv: [
+    'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=1200&q=85'
+  ],
+  sports: [
+    'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1503736334956-4c8f8e92946d?auto=format&fit=crop&w=1200&q=85'
+  ],
+  ev: [
+    'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1560958089-b8a1929d?auto=format&fit=crop&w=1200&q=85'
+  ],
+  general: [
+    'https://images.unsplash.com/photo-1507136566006-cfc505b114fc?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1489824904134-891ab64532f1?auto=format&fit=crop&w=1200&q=85',
+    'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1200&q=85'
+  ]
+};
+function categoryFor(query = '', alt = '') {
+  const text = `${query} ${alt}`.toLowerCase();
+  if (/electric|tesla|lucid|ioniq|ev /.test(text)) return 'ev';
+  if (/suv|crossover|4runner|rav4|cr-v|explorer|tahoe|x[357]|gle|glc/.test(text)) return 'suv';
+  if (/sport|coupe|convertible|911|supra|mustang|corvette|f-type|vantage|z /.test(text)) return 'sports';
+  if (/sedan|camry|corolla|accord|civic|3 series|5 series|a4|a6|c-class|e-class/.test(text)) return 'sedan';
+  return 'general';
+}
+const apiRoot = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1').replace(/\/$/, '');
 
-export default function VehicleImage({ query, alt, className = '', eager = false, src, sourcePage, license, credit }) {
-  const host = useRef(null);
-  const [asset, setAsset] = useState(null);
-  const [loading, setLoading] = useState(false);
+export default function VehicleImage({ query, alt, className = '', eager = false, src, slug, sourcePage, license, credit }) {
+  const fallbacks = useMemo(() => photoSets[categoryFor(query, alt)], [query, alt]);
+  const [fallbackIndex, setFallbackIndex] = useState(0);
   const [failed, setFailed] = useState(false);
+  const commonsSrc = slug ? `${apiRoot}/vehicles/${encodeURIComponent(slug)}/photo` : '';
+  const currentSrc = fallbackIndex === 0 && src ? src : (fallbackIndex === 0 && commonsSrc ? commonsSrc : fallbacks[fallbackIndex - (src || commonsSrc ? 1 : 0)]);
 
-  useEffect(() => {
-    if (src) { setAsset({ src, sourcePage: sourcePage || src, license: license || 'Provided image', credit: credit || 'AutoLux' }); return undefined; }
-    if (!query || asset || failed) return undefined;
-    let active = true;
-    let observer;
-    const load = async () => {
-      setLoading(true);
-      try {
-        const params = new URLSearchParams({
-          action: 'query', generator: 'search', gsrsearch: query,
-          gsrnamespace: '6', gsrlimit: '10', prop: 'imageinfo',
-          iiprop: 'url|extmetadata', iiurlwidth: '1400', format: 'json', origin: '*'
-        });
-        const response = await fetch(`https://commons.wikimedia.org/w/api.php?${params.toString()}`);
-        if (!response.ok) throw new Error('Image search unavailable');
-        const payload = await response.json();
-        const pages = Object.values(payload.query?.pages || {});
-        const candidate = pages.map((page) => {
-          const info = page.imageinfo?.[0];
-          const meta = info?.extmetadata || {};
-          const license = stripHtml(meta.LicenseShortName?.value || '');
-          return { page, info, meta, license };
-        }).find((item) => item.info?.thumburl && allowedLicense.test(item.license) && !/\bNC\b|\bND\b/i.test(item.license));
-        if (!candidate) throw new Error('No reusable image found');
-        const fileTitle = candidate.page.title.replace(/^File:/, '');
-        const sourcePage = `https://commons.wikimedia.org/wiki/${encodeURIComponent(candidate.page.title.replaceAll(' ', '_'))}`;
-        if (active) setAsset({
-          src: candidate.info.thumburl,
-          sourcePage,
-          license: candidate.license,
-          credit: stripHtml(candidate.meta.Artist?.value || candidate.meta.Credit?.value || 'Wikimedia Commons contributor')
-        });
-      } catch {
-        if (active) setFailed(true);
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    if (eager || !('IntersectionObserver' in window)) load();
-    else {
-      observer = new IntersectionObserver((entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          observer.disconnect();
-          load();
-        }
-      }, { rootMargin: '240px' });
-      if (host.current) observer.observe(host.current);
-    }
-    return () => { active = false; observer?.disconnect(); };
-  }, [query, asset, failed, eager, src, sourcePage, license, credit]);
+  useEffect(() => { setFallbackIndex(0); setFailed(false); }, [src, slug, query, alt]);
+  const handleError = () => {
+    const next = fallbackIndex + 1;
+    const total = fallbacks.length + (src || commonsSrc ? 1 : 0);
+    if (next < total) setFallbackIndex(next);
+    else setFailed(true);
+  };
+  const isFallback = fallbackIndex > 0 || (!src && !commonsSrc);
 
-  return <Box ref={host} className={`vehicle-image ${className}`}>
-    {asset ? <>
-      <img src={asset.src} alt={alt} loading={eager ? 'eager' : 'lazy'} onError={() => setFailed(true)} />
-      <a className="image-credit" href={asset.sourcePage} target="_blank" rel="noreferrer" title={`${asset.credit} · ${asset.license}`}>Photo: {asset.credit} · {asset.license}</a>
-    </> : <Box className="vehicle-image-placeholder">
-      {loading ? <CircularProgress size={22} color="primary" /> : <>
-        <span className="vehicle-placeholder-mark">A·L</span>
-        <Typography variant="caption">{failed ? 'Photo unavailable' : 'Vehicle photography'}</Typography>
-      </>}
-    </Box>}
+  return <Box className={`vehicle-image ${className}`}>
+    {!failed ? <>
+      <img key={currentSrc} src={currentSrc} alt={alt} loading={eager ? 'eager' : 'lazy'} decoding="async" onError={handleError} />
+      <a className="image-credit" href={isFallback ? 'https://unsplash.com/license' : (sourcePage || 'https://commons.wikimedia.org/')} target="_blank" rel="noreferrer">
+        {isFallback ? 'Representative vehicle photo · Unsplash' : `Vehicle photo · ${credit || 'Wikimedia Commons'}${license ? ` · ${license}` : ''}`}
+      </a>
+    </> : <Box className="vehicle-image-placeholder"><span className="vehicle-placeholder-mark">A·L</span><Typography variant="caption">Vehicle photo unavailable</Typography></Box>}
   </Box>;
 }

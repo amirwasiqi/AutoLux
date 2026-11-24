@@ -16,6 +16,8 @@ import VehiclesPage from "../pages/VehiclesPage.jsx";
 import VehicleDetailPage from "../pages/VehicleDetailPage.jsx";
 import FleetManagementPage from "../pages/FleetManagementPage.jsx";
 import AdminDashboardPage from "../pages/AdminDashboardPage.jsx";
+import BookingPage from "../pages/BookingPage.jsx";
+import AdminBookingsPage from "../pages/AdminBookingsPage.jsx";
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -24,6 +26,7 @@ function AnimatedRoutes() {
       <Route path="/" element={<HomePage />} />
       <Route path="/vehicles" element={<VehiclesPage />} />
       <Route path="/vehicles/:slug" element={<VehicleDetailPage />} />
+      <Route element={<RequireAuth />}><Route path="/vehicles/:slug/book" element={<BookingPage />} /></Route>
       <Route path="/shop" element={<InfoPage page="shop" />} />
       <Route path="/services" element={<InfoPage page="services" />} />
       <Route path="/contact" element={<InfoPage page="contact" />} />
@@ -35,7 +38,7 @@ function AnimatedRoutes() {
       <Route path="/reset-password" element={<PlaceholderPage title="Choose a new password" />} />
       <Route path="/forbidden" element={<ForbiddenPage />} />
       <Route element={<RequireAuth />}><Route path="/account" element={<AccountPage />} /></Route>
-      <Route element={<RequireAuth roles={["super_admin", "company_admin", "fleet_manager"]} />}><Route path="/admin" element={<AdminDashboardPage />} /><Route path="/admin/fleet" element={<FleetManagementPage />} /></Route>
+      <Route element={<RequireAuth roles={["super_admin", "company_admin", "fleet_manager"]} />}><Route path="/admin" element={<AdminDashboardPage />} /><Route path="/admin/fleet" element={<FleetManagementPage />} /><Route path="/admin/bookings" element={<AdminBookingsPage />} /></Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   </motion.div></AnimatePresence>;

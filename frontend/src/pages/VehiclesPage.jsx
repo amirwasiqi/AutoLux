@@ -12,7 +12,7 @@ const money = (value) => value == null ? 'Price on request' : new Intl.NumberFor
 function VehicleCard({ vehicle }) {
   return <article className="vehicle-card">
     <Link to={`/vehicles/${vehicle.slug}`} className="vehicle-card-image-link" aria-label={`View ${vehicle.make} ${vehicle.model}`}>
-      <VehicleImage query={vehicle.image_search_query || `${vehicle.model_year} ${vehicle.make} ${vehicle.model} car exterior`} src={vehicle.image_url} sourcePage={vehicle.image_source_url} license={vehicle.image_license} credit={vehicle.image_credit} alt={`${vehicle.model_year} ${vehicle.make} ${vehicle.model}`} />
+      <VehicleImage slug={vehicle.slug} query={vehicle.image_search_query || `${vehicle.model_year} ${vehicle.make} ${vehicle.model} car exterior`} src={vehicle.image_url} sourcePage={vehicle.image_source_url} license={vehicle.image_license} credit={vehicle.image_credit} alt={`${vehicle.model_year} ${vehicle.make} ${vehicle.model}`} />
       <span className="vehicle-card-category">{vehicle.category}</span>
       <span className="vehicle-card-stock">{vehicle.stock_code}</span>
     </Link>

@@ -19,3 +19,11 @@
 
 ## Verification
 The archive contents and ZIP integrity were checked after packaging. A full dependency installation, frontend production build, live PostgreSQL migration, OAuth/email/SMS provider test and end-to-end browser test were not run in this environment. Run the verification checklist in `docs/VERIFICATION.md` before deploying.
+
+
+## Follow-up repairs and Phase 4
+- Removed duplicate booking route imports/mounts that prevented Express startup.
+- Reworked vehicle image resolution to use the AutoLux API as a server-side Wikimedia Commons lookup with multi-image fallback handling.
+- Strengthened visibility and contrast for home, login and registration actions.
+- Added reservation availability, customer booking history/cancellation, staff booking dashboard, guarded status transitions and event history.
+- Added migration `004_booking_operations.sql`.

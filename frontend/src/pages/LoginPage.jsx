@@ -28,14 +28,14 @@ export default function LoginPage() {
           error={!!errors.email} helperText={errors.email?.message} />
         <TextField label="Password" type="password" fullWidth {...register('password')}
           error={!!errors.password} helperText={errors.password?.message} />
-        <Button type="submit" variant="contained" disabled={isSubmitting} sx={{ py:1.4 }}>
+        <Button type="submit" variant="contained" disabled={isSubmitting} sx={{ py:1.5, minHeight:52, fontWeight:800, color:"#090a0b", backgroundColor:"#d8b45a", "&:hover":{backgroundColor:"#f0d58b"} }}>
           {isSubmitting ? 'Signing in…' : 'Sign in'}
         </Button>
         <Typography variant="body2" textAlign="center">
-          <Link component={RouterLink} to="/forgot-password">Forgot password?</Link>
+          <Link className="auth-action-link" component={RouterLink} to="/forgot-password">Forgot password?</Link>
         </Typography>
         <Typography variant="body2" textAlign="center" color="grey.400">
-          New to AutoLux? <Link component={RouterLink} to="/register">Create an account</Link>
+          New to AutoLux? <Link className="auth-action-link" component={RouterLink} to="/register">Create an account</Link>
         </Typography>
       </Stack>
     </AuthLayout>

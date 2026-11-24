@@ -33,6 +33,37 @@ const publicColumns = `v.id, v.stock_code, v.slug, v.make, v.model, v.model_year
   v.image_url, v.image_search_query, v.image_source_url, v.image_license, v.image_credit, v.rental_price_reference_url, v.daily_rental_price_basis,
   b.name AS branch_name, b.city AS branch_city, b.state_code AS branch_state`;
 
+const commonsImageCache = new Map();
+router.get('/:slug/photo', asyncHandler(async (req, res) => {
+  const cached = commonsImageCache.get(req.params.slug);
+  if (cached && cached.expiresAt > Date.now()) return res.redirect(302, cached.url);
+  const vehicle = await pool.query(`SELECT make, model, model_year, category, image_search_query FROM vehicles WHERE slug=$1 AND archived_at IS NULL LIMIT 1`, [req.params.slug]);
+  if (!vehicle.rowCount) return res.status(404).end();
+  const v = vehicle.rows[0];
+  const search = String(v.image_search_query || `${v.model_year} ${v.make} ${v.model} automobile`).slice(0, 180);
+  try {
+    const endpoint = new URL('https://commons.wikimedia.org/w/api.php');
+    endpoint.search = new URLSearchParams({ action:'query', generator:'search', gsrsearch:`filetype:bitmap ${search}`, gsrnamespace:'6', gsrlimit:'10', prop:'imageinfo', iiprop:'url|extmetadata', iiurlwidth:'1600', format:'json', origin:'*' }).toString();
+    const response = await fetch(endpoint, { headers:{ 'User-Agent':'AutoLuxVehicleCatalogue/1.0 (vehicle photo lookup)' }, signal:AbortSignal.timeout(9000) });
+    if (!response.ok) throw new Error('Commons image search failed');
+    const payload = await response.json();
+    const pages = Object.values(payload.query?.pages || {});
+    const match = pages.find((page) => {
+      const info = page.imageinfo?.[0];
+      const url = info?.thumburl || info?.url || '';
+      return /\.(jpe?g|png|webp)(\?|$)/i.test(url) && !/logo|icon|flag|diagram/i.test(page.title || '');
+    });
+    const info = match?.imageinfo?.[0];
+    const imageUrl = info?.thumburl || info?.url;
+    if (!imageUrl) return res.status(404).end();
+    commonsImageCache.set(req.params.slug, { url:imageUrl, expiresAt:Date.now()+6*60*60*1000 });
+    return res.redirect(302, imageUrl);
+  } catch (error) {
+    req.log?.warn?.({ err:error }, 'Vehicle image lookup failed');
+    return res.status(502).end();
+  }
+}));
+
 router.get('/filters', asyncHandler(async (_req, res) => {
   const [categories, makes] = await Promise.all([
     pool.query(`SELECT DISTINCT category FROM vehicles WHERE published=true AND archived_at IS NULL AND status='available' ORDER BY category`),

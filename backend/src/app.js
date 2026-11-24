@@ -9,6 +9,7 @@ import userRoutes from './modules/users/users.routes.js';
 import adminSetupRoutes from './modules/admin-setup/admin-setup.routes.js';
 import vehicleRoutes from './modules/vehicles/vehicles.routes.js';
 import dashboardRoutes from './modules/admin-setup/dashboard.routes.js';
+import bookingRoutes from './modules/bookings/bookings.routes.js';
 import { pool } from './db/pool.js';
 
 export const app = express();
@@ -28,6 +29,7 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/admin-setup', adminSetupRoutes);
 app.use('/api/v1/vehicles', vehicleRoutes);
+app.use('/api/v1/bookings', bookingRoutes);
 app.use('/api/v1/admin/dashboard', dashboardRoutes);
 
 app.use((req,res) => res.status(404).json({ error:{ code:'NOT_FOUND', message:'Resource not found.' } }));

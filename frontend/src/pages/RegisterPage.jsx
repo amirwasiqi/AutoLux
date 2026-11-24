@@ -46,11 +46,11 @@ export default function RegisterPage() {
           <MenuItem value="en">English</MenuItem><MenuItem value="de">German</MenuItem>
           <MenuItem value="fr">French</MenuItem><MenuItem value="ar">Arabic</MenuItem>
         </TextField>
-        <Button type="submit" variant="contained" disabled={isSubmitting} sx={{py:1.4}}>
+        <Button type="submit" variant="contained" disabled={isSubmitting} sx={{ py:1.5, minHeight:52, fontWeight:800, color:"#090a0b", backgroundColor:"#d8b45a", "&:hover":{backgroundColor:"#f0d58b"} }}>
           {isSubmitting ? 'Creating account…' : 'Create account'}
         </Button>
         <Typography variant="body2" textAlign="center" color="grey.400">
-          Already registered? <Link component={RouterLink} to="/login">Sign in</Link>
+          Already registered? <Link className="auth-action-link" component={RouterLink} to="/login">Sign in</Link>
         </Typography>
       </Stack>
     </AuthLayout>
