@@ -12,13 +12,18 @@ import SiteFooter from "../components/SiteFooter.jsx";
 import HomePage from "../pages/HomePage.jsx";
 import InfoPage from "../pages/InfoPage.jsx";
 import NotFoundPage from "../pages/NotFoundPage.jsx";
+import VehiclesPage from "../pages/VehiclesPage.jsx";
+import VehicleDetailPage from "../pages/VehicleDetailPage.jsx";
+import FleetManagementPage from "../pages/FleetManagementPage.jsx";
+import AdminDashboardPage from "../pages/AdminDashboardPage.jsx";
 
 function AnimatedRoutes() {
   const location = useLocation();
   return <AnimatePresence mode="wait"><motion.div key={location.pathname} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.24 }}>
     <Routes location={location}>
       <Route path="/" element={<HomePage />} />
-      <Route path="/vehicles" element={<InfoPage page="vehicles" />} />
+      <Route path="/vehicles" element={<VehiclesPage />} />
+      <Route path="/vehicles/:slug" element={<VehicleDetailPage />} />
       <Route path="/shop" element={<InfoPage page="shop" />} />
       <Route path="/services" element={<InfoPage page="services" />} />
       <Route path="/contact" element={<InfoPage page="contact" />} />
@@ -30,6 +35,7 @@ function AnimatedRoutes() {
       <Route path="/reset-password" element={<PlaceholderPage title="Choose a new password" />} />
       <Route path="/forbidden" element={<ForbiddenPage />} />
       <Route element={<RequireAuth />}><Route path="/account" element={<AccountPage />} /></Route>
+      <Route element={<RequireAuth roles={["super_admin", "company_admin", "fleet_manager"]} />}><Route path="/admin" element={<AdminDashboardPage />} /><Route path="/admin/fleet" element={<FleetManagementPage />} /></Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   </motion.div></AnimatePresence>;

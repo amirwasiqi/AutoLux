@@ -1,11 +1,12 @@
-# AutoLux — Integrated Phase 1 + Phase 2
+# AutoLux — Integrated Phases 1–3
 
-This project combines the Phase 1 public website, design system, PostgreSQL foundation and branch/settings schema with the Phase 2 authentication and customer identity foundation. Existing Phase 1 landing-page routes are retained and authentication routes are added.
+This project combines the Phase 1 public website and PostgreSQL foundation, Phase 2 authentication and customer identity, and Phase 3 vehicle catalogue and fleet administration. Existing public routes and authentication are retained.
 
 ## Project structure
 - `frontend/` — React 19, Vite, JSX, MUI, Tailwind, Framer Motion, GSAP, Lenis, React Router, Axios, React Hook Form and Zod.
 - `backend/` — Express 5 API, PostgreSQL pool, SQL migrations, authentication, customer identity, role/permission middleware and first Super Admin setup.
 - `docs/` — phase design, architecture, integration notes, security boundaries and verification checklist.
+- `backend/src/modules/vehicles/seed-vehicles.json` — 100 catalogue records with transparent price-basis metadata and image search terms.
 
 ## Requirements
 - Node.js 20 or newer
@@ -42,10 +43,15 @@ Open `http://localhost:5173`.
 - Never commit `.env` files or private credentials.
 
 ## Database migration order
-The integrated migration runner applies `000_phase1_foundation.sql` before `001_identity.sql`. It supports the Phase 1 `schema_migrations.filename` and standalone Phase 2 `schema_migrations.name` ledger formats. Back up any existing database before running migrations.
+The integrated migration runner applies `000_phase1_foundation.sql`, `001_identity.sql`, then `002_vehicle_catalog.sql`. It supports the Phase 1 `schema_migrations.filename` and standalone Phase 2 `schema_migrations.name` ledger formats. Back up any existing database before running migrations.
+
+## Phase 3 — Vehicle catalogue and fleet foundation
+The integrated project now includes a 100-model vehicle catalogue, public search/filter/detail pages, a fleet management screen, PostgreSQL vehicle/image/status-history tables and protected fleet APIs. See `docs/PHASE-3.md` for details, price-source notes, image licensing behavior and API routes.
+
+The seeded records are sample catalogue entries (`is_demo=true`), not confirmation of physical AutoLux inventory. Model-level sale prices are used-market median references where available; otherwise they are segment estimates. Rental prices are published model examples or category market-guide rates. Confirm actual vehicle, trim, branch availability, dates and AutoLux-approved pricing before accepting payment or a reservation. Vehicle photos are resolved from Wikimedia Commons at runtime with license/credit links; images are not bundled in the ZIP.
 
 ## Current scope and known boundaries
-This is an integration of the two supplied phase archives, not a claim that all later AutoLux features are complete. The 100-vehicle catalogue, live vehicle images and market-verified rental/sales prices, bookings, checkout, payments, inventory operations and full MFA workflows remain future implementation work. The Phase 2 security-boundary and verification documents remain in `docs/`; review them before production use.
+Bookings/availability calendars, branch-specific dynamic pricing, payment checkout, rental contracts, customer/driver document verification, maintenance work orders, inspections/damage workflows, stock transfers, vehicle sales checkout and full MFA workflows remain future implementation work. The Phase 2 security-boundary and verification documents remain in `docs/`; review them before production use.
 
 ## GitHub
 Commit source code, package manifests, lockfiles when generated, SQL migrations, documentation and `.env.example`. Do not commit `.env`, `node_modules`, database backups, real customer data or private keys.
