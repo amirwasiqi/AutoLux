@@ -1,0 +1,10 @@
+:root {
+  color-scheme: dark;
+  --color-ink: #050607; --color-carbon: #101214; --color-graphite: #1a1d20;
+  --color-gold: #d8b45a; --color-gold-light: #f0d58b; --color-paper: #f4f1e9;
+  --color-muted: #a6a6a2; --color-line: #303235;
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-sans: "DM Sans", Arial, sans-serif; --font-mono: "IBM Plex Mono", monospace;
+  --content-width: 88rem; --page-gutter: clamp(1.25rem, 5.6vw, 6.5rem);
+  --ease-out: cubic-bezier(.2,.75,.25,1);
+}
