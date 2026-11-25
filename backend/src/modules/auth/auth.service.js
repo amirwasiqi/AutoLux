@@ -4,7 +4,9 @@ import crypto from 'node:crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { pool } from '../../db/pool.js';
 import { env } from '../../config/env.js';
-import { hashToken, randomToken, signAccessToken } from '../../utils/tokens.js';
+import { hashToken, randomToken, signAccessToken, signMfaChallenge, verifyMfaChallenge } from '../../utils/tokens.js';
+import { generateTotpSecret, encryptSecret, decryptSecret, verifyTotp, makeRecoveryCodes } from '../../utils/mfa.js';
+import { sendMfaRecoveryEmail } from '../../services/email.js';
 import { sendVerificationEmail, sendPasswordResetEmail, startPhoneVerification, checkPhoneVerification } from '../../services/notifications.js';
 import { recordFirstSignIn } from '../../services/private-signin-log.js';
 
@@ -13,6 +15,7 @@ const publicUser = (row) => ({
   id: row.id, email: row.email, firstName: row.first_name, lastName: row.last_name,
   phone: row.phone_e164, preferredLanguage: row.preferred_language,
   emailVerified: Boolean(row.email_verified_at), phoneVerified: Boolean(row.phone_verified_at),
+  mfa_enabled: Boolean(row.mfa_enabled), mfa_email_recovery_enabled: row.mfa_email_recovery_enabled !== false,
   roles: row.roles || []
 });
 
@@ -66,10 +69,10 @@ export async function register(input, req, res) {
        VALUES($1,$2,now()+interval '24 hours')`, [user.id, hashToken(verifyToken)]
     );
     await client.query(
-      `INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,ip_address,user_agent)
-       VALUES($1,'user.registered','user',$1,$2,$3)`,
-      [user.id, req.ip, req.get('user-agent') || null]
-    );
+  `INSERT INTO audit_logs(actor_user_id, action, entity_type, entity_id, ip_address, user_agent)
+   VALUES ($1::uuid, 'user.registered', 'user', $1::text, $2, $3)`,
+  [user.id, req.ip, req.get('user-agent') || null]
+);
     await client.query('COMMIT');
     const delivery = await sendVerificationEmail(user.email, verifyToken);
     return { user: publicUser(user), verificationEmailSent: delivery.delivered };
@@ -97,6 +100,7 @@ export async function login(input, req, res) {
     const error = new Error('Email or password is incorrect, or the account is not active.');
     error.status = 401; error.code = 'INVALID_CREDENTIALS'; throw error;
   }
+  if (user.mfa_enabled) return { mfaRequired:true, challengeToken:signMfaChallenge(user.id), recoveryByEmail:Boolean(user.mfa_email_recovery_enabled) };
   await pool.query('UPDATE users SET last_login_at=now() WHERE id=$1', [user.id]);
   const session = await issueSession(user, req, res);
   await recordFirstSignIn(user.id, 'password');
@@ -236,11 +240,99 @@ export async function googleLogin(idToken, req, res) {
     }
     if (user.status !== 'active') { const e=new Error('This account cannot sign in.'); e.status=403; throw e; }
     await client.query('COMMIT');
+    if (user.mfa_enabled) return { mfaRequired:true, challengeToken:signMfaChallenge(user.id), recoveryByEmail:Boolean(user.mfa_email_recovery_enabled) };
     const session = await issueSession(user,req,res);
     await recordFirstSignIn(user.id, 'google');
     return session;
   } catch(error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
+}
+
+
+async function userForMfaChallenge(challengeToken) {
+  let claims;
+  try { claims=verifyMfaChallenge(challengeToken); } catch { const e=new Error('MFA challenge is invalid or expired.'); e.status=401; throw e; }
+  const result=await pool.query(`SELECT id,email,first_name,last_name,status,mfa_secret_encrypted,mfa_enabled,mfa_email_recovery_enabled FROM users WHERE id=$1`,[claims.sub]);
+  const user=result.rows[0];
+  if(!user||user.status!=='active'||!user.mfa_enabled) { const e=new Error('MFA challenge is no longer valid.'); e.status=401; throw e; }
+  return user;
+}
+export async function startMfaEnrollment(userId) {
+  const secret=generateTotpSecret();
+  await pool.query('UPDATE users SET mfa_pending_secret_encrypted=$2,updated_at=now() WHERE id=$1',[userId,encryptSecret(secret)]);
+  const user=await pool.query('SELECT email FROM users WHERE id=$1',[userId]);
+  const label=encodeURIComponent(`AutoLux:${user.rows[0]?.email||userId}`);
+  const issuer=encodeURIComponent('AutoLux');
+  return { secret, otpauthUrl:`otpauth://totp/${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30` };
+}
+export async function confirmMfaEnrollment(userId,code) {
+  const result=await pool.query('SELECT mfa_pending_secret_encrypted FROM users WHERE id=$1',[userId]);
+  const encrypted=result.rows[0]?.mfa_pending_secret_encrypted;
+  if(!encrypted) { const e=new Error('Start authenticator enrollment first.'); e.status=409; throw e; }
+  const secret=decryptSecret(encrypted);
+  if(!verifyTotp(secret,code)) { const e=new Error('Authenticator code is invalid.'); e.status=400; throw e; }
+  const codes=makeRecoveryCodes(10);
+  const client=await pool.connect();
+  try { await client.query('BEGIN');
+    await client.query(`UPDATE users SET mfa_secret_encrypted=$2,mfa_pending_secret_encrypted=NULL,mfa_enabled=true,mfa_enabled_at=now(),updated_at=now() WHERE id=$1`,[userId,encrypted]);
+    await client.query('DELETE FROM mfa_recovery_codes WHERE user_id=$1',[userId]);
+    for(const codeValue of codes) await client.query('INSERT INTO mfa_recovery_codes(user_id,code_hash) VALUES($1,$2)',[userId,hashToken(codeValue.replaceAll('-',''))]);
+    await client.query('COMMIT');
+  } catch(error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+  return { enabled:true,recoveryCodes:codes };
+}
+export async function disableMfa(userId,code) {
+  const result=await pool.query('SELECT mfa_secret_encrypted FROM users WHERE id=$1 AND mfa_enabled=true',[userId]);
+  if(!result.rowCount||!verifyTotp(decryptSecret(result.rows[0].mfa_secret_encrypted),code)) { const e=new Error('Authenticator code is invalid.'); e.status=400; throw e; }
+  await pool.query('UPDATE users SET mfa_enabled=false,mfa_secret_encrypted=NULL,mfa_pending_secret_encrypted=NULL,mfa_enabled_at=NULL,updated_at=now() WHERE id=$1',[userId]);
+  await pool.query('DELETE FROM mfa_recovery_codes WHERE user_id=$1',[userId]);
+  await pool.query('DELETE FROM mfa_email_recovery_codes WHERE user_id=$1',[userId]);
+  return { enabled:false };
+}
+export async function regenerateMfaRecoveryCodes(userId,code) {
+  const result=await pool.query('SELECT mfa_secret_encrypted FROM users WHERE id=$1 AND mfa_enabled=true',[userId]);
+  if(!result.rowCount||!verifyTotp(decryptSecret(result.rows[0].mfa_secret_encrypted),code)) { const e=new Error('Authenticator code is invalid.'); e.status=400; throw e; }
+  const codes=makeRecoveryCodes(10), client=await pool.connect();
+  try { await client.query('BEGIN'); await client.query('DELETE FROM mfa_recovery_codes WHERE user_id=$1',[userId]);
+    for(const value of codes) await client.query('INSERT INTO mfa_recovery_codes(user_id,code_hash) VALUES($1,$2)',[userId,hashToken(value.replaceAll('-',''))]);
+    await client.query('COMMIT');
+  } catch(error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+  return { recoveryCodes:codes };
+}
+async function consumeRecoveryCode(userId,code) {
+  const hash=hashToken(String(code).toUpperCase().replace(/[^A-Z0-9]/g,''));
+  const result=await pool.query(`UPDATE mfa_recovery_codes SET used_at=now() WHERE id=(SELECT id FROM mfa_recovery_codes WHERE user_id=$1 AND code_hash=$2 AND used_at IS NULL LIMIT 1 FOR UPDATE) RETURNING id`,[userId,hash]);
+  return result.rowCount>0;
+}
+export async function completeMfaLogin(challengeToken,code,req,res) {
+  const user=await userForMfaChallenge(challengeToken);
+  let valid=verifyTotp(decryptSecret(user.mfa_secret_encrypted),code);
+  if(!valid) valid=await consumeRecoveryCode(user.id,code);
+  if(!valid) { const e=new Error('Authenticator or recovery code is invalid.'); e.status=401; throw e; }
+  await pool.query('UPDATE users SET last_login_at=now() WHERE id=$1',[user.id]);
+  const session=await issueSession(user,req,res);
+  await recordFirstSignIn(user.id,'password+mfa');
+  await pool.query(`INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,ip_address,user_agent) VALUES($1,'auth.mfa_login','user',$1,$2,$3)`,[user.id,req.ip,req.get('user-agent')||null]);
+  return session;
+}
+export async function startMfaEmailRecovery(challengeToken) {
+  const user=await userForMfaChallenge(challengeToken);
+  if(!user.mfa_email_recovery_enabled) { const e=new Error('Email recovery is disabled for this account.'); e.status=403; throw e; }
+  const code=String(crypto.randomInt(0,1000000)).padStart(6,'0');
+  await pool.query('INSERT INTO mfa_email_recovery_codes(user_id,code_hash,expires_at) VALUES($1,$2,now()+interval \'10 minutes\')',[user.id,hashToken(code)]);
+  const delivery=await sendMfaRecoveryEmail(user.email,code);
+  if(!delivery.delivered) { const e=new Error('Email recovery is not configured.'); e.status=503; throw e; }
+  return { sent:true };
+}
+export async function completeMfaEmailRecovery(challengeToken,code,req,res) {
+  const user=await userForMfaChallenge(challengeToken);
+  const result=await pool.query(`UPDATE mfa_email_recovery_codes SET consumed_at=now() WHERE id=(SELECT id FROM mfa_email_recovery_codes WHERE user_id=$1 AND code_hash=$2 AND consumed_at IS NULL AND expires_at>now() ORDER BY created_at DESC LIMIT 1 FOR UPDATE) RETURNING id`,[user.id,hashToken(code)]);
+  if(!result.rowCount) { const e=new Error('Email recovery code is invalid or expired.'); e.status=401; throw e; }
+  await pool.query('UPDATE users SET last_login_at=now() WHERE id=$1',[user.id]);
+  const session=await issueSession(user,req,res);
+  await recordFirstSignIn(user.id,'email+mfa-recovery');
+  await pool.query(`INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,ip_address,user_agent) VALUES($1,'auth.mfa_email_recovery','user',$1,$2,$3)`,[user.id,req.ip,req.get('user-agent')||null]);
+  return session;
 }
 
 export async function startSms(phone) {

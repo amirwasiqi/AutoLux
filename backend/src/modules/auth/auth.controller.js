@@ -53,3 +53,31 @@ export const verifySms = asyncHandler(async (req,res) => {
   const code = z.string().regex(/^\d{4,10}$/).parse(req.body.code);
   res.json({ data: await service.verifySms(req.user.id,phone,code) });
 });
+
+export const startMfaEnrollment = asyncHandler(async(req,res) => {
+  res.json({data:await service.startMfaEnrollment(req.user.id)});
+});
+export const confirmMfaEnrollment = asyncHandler(async(req,res) => {
+  const body=z.object({code:z.string().regex(/^\d{6}$/)}).parse(req.body);
+  res.json({data:await service.confirmMfaEnrollment(req.user.id,body.code)});
+});
+export const disableMfa = asyncHandler(async(req,res) => {
+  const body=z.object({code:z.string().min(6).max(32)}).parse(req.body);
+  res.json({data:await service.disableMfa(req.user.id,body.code)});
+});
+export const regenerateMfaRecoveryCodes = asyncHandler(async(req,res) => {
+  const body=z.object({code:z.string().regex(/^\d{6}$/)}).parse(req.body);
+  res.json({data:await service.regenerateMfaRecoveryCodes(req.user.id,body.code)});
+});
+export const completeMfaLogin = asyncHandler(async(req,res) => {
+  const body=z.object({challengeToken:z.string().min(20),code:z.string().min(6).max(32)}).parse(req.body);
+  res.json({data:await service.completeMfaLogin(body.challengeToken,body.code,req,res)});
+});
+export const startMfaEmailRecovery = asyncHandler(async(req,res) => {
+  const body=z.object({challengeToken:z.string().min(20)}).parse(req.body);
+  res.json({data:await service.startMfaEmailRecovery(body.challengeToken)});
+});
+export const completeMfaEmailRecovery = asyncHandler(async(req,res) => {
+  const body=z.object({challengeToken:z.string().min(20),code:z.string().regex(/^\d{6}$/)}).parse(req.body);
+  res.json({data:await service.completeMfaEmailRecovery(body.challengeToken,body.code,req,res)});
+});

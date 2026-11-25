@@ -10,18 +10,22 @@ import { useAuth } from '../auth/AuthContext.jsx';
 
 const schema = z.object({ email:z.string().email(), password:z.string().min(1) });
 export default function LoginPage() {
-  const { login, loginGoogle } = useAuth();
+  const { login, loginGoogle, completeMfa, startEmailMfaRecovery } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [error,setError] = useState('');
   const [googleReady,setGoogleReady] = useState(false);
+  const [mfaChallenge,setMfaChallenge] = useState('');
+  const [mfaCode,setMfaCode] = useState('');
+  const [emailRecovery,setEmailRecovery] = useState(false);
+  const [recoverySent,setRecoverySent] = useState(false);
   useEffect(() => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     if (!clientId) return;
     const initialize = () => {
       if (!window.google?.accounts?.id) return false;
       window.google.accounts.id.initialize({ client_id: clientId, callback: async ({ credential }) => {
-        try { await loginGoogle(credential); navigate(location.state?.from?.pathname || '/account'); }
+        try { const result=await loginGoogle(credential); if(result?.mfaRequired){setMfaChallenge(result.challengeToken);return;} navigate(location.state?.from?.pathname || '/account'); }
         catch (e) { setError(e.response?.data?.error?.message || 'Google sign-in failed.'); }
       } });
       const target = document.getElementById('google-signin-button');
@@ -36,12 +40,23 @@ export default function LoginPage() {
   const { register,handleSubmit,formState:{errors,isSubmitting} } = useForm({ resolver:zodResolver(schema) });
   const submit = async (values) => {
     setError('');
-    try { await login(values); navigate(location.state?.from?.pathname || '/account'); }
+    try { const result=await login(values); if(result?.mfaRequired){setMfaChallenge(result.challengeToken);return;} navigate(location.state?.from?.pathname || '/account'); }
     catch (e) { setError(e.response?.data?.error?.message || 'Unable to sign in.'); }
   };
+  const verifyMfa = async (event) => { event.preventDefault(); setError(''); try { await completeMfa(mfaChallenge,mfaCode,emailRecovery); navigate(location.state?.from?.pathname || '/account'); } catch(e) { setError(e.response?.data?.error?.message || 'MFA verification failed.'); } };
+  const sendRecovery = async () => { setError(''); try { await startEmailMfaRecovery(mfaChallenge); setEmailRecovery(true); setRecoverySent(true); } catch(e) { setError(e.response?.data?.error?.message || 'Email recovery could not be started.'); } };
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to manage your AutoLux account.">
-      <Stack component="form" spacing={2} onSubmit={handleSubmit(submit)}>
+      {mfaChallenge ? <Stack component="form" spacing={2} onSubmit={verifyMfa}>
+        <Typography variant="h6">Two-step verification</Typography>
+        <Typography color="text.secondary" variant="body2">{emailRecovery?'Enter the six-digit code sent to your verified email.':'Enter the six-digit code from your authenticator app, or a recovery code.'}</Typography>
+        {error && <Alert severity="error">{error}</Alert>}
+        {recoverySent && <Alert severity="success">Recovery code sent. Check your email.</Alert>}
+        <TextField label={emailRecovery?'Email recovery code':'Authenticator / recovery code'} value={mfaCode} onChange={e=>setMfaCode(e.target.value)} autoFocus required inputProps={{maxLength:32}}/>
+        <Button type="submit" variant="contained">Verify and sign in</Button>
+        {!emailRecovery && <Button onClick={sendRecovery} variant="text">Use email recovery instead</Button>}
+        {emailRecovery && <Button onClick={()=>{setEmailRecovery(false);setMfaCode('');setRecoverySent(false);}} variant="text">Use authenticator or recovery code</Button>}
+      </Stack> : <Stack component="form" spacing={2} onSubmit={handleSubmit(submit)}>
         {error && <Alert severity="error">{error}</Alert>}
         <TextField label="Email address" type="email" fullWidth {...register('email')}
           error={!!errors.email} helperText={errors.email?.message} />
@@ -57,7 +72,7 @@ export default function LoginPage() {
         <Typography variant="body2" textAlign="center" color="grey.400">
           New to AutoLux? <Link className="auth-action-link" component={RouterLink} to="/register">Create an account</Link>
         </Typography>
-      </Stack>
+      </Stack>}
     </AuthLayout>
   );
 }

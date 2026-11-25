@@ -9,7 +9,7 @@ export async function authenticate(req, res, next) {
     if (!token) return res.status(401).json({ error: { code: 'UNAUTHENTICATED', message: 'Sign in required.' } });
     const claims = verifyAccessToken(token);
     const result = await pool.query(
-      `SELECT u.id, u.email, u.first_name, u.last_name, u.status,
+      `SELECT u.id, u.email, u.first_name, u.last_name, u.status, u.mfa_enabled, u.mfa_email_recovery_enabled,
         COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles
        FROM users u LEFT JOIN user_roles ur ON ur.user_id=u.id
        LEFT JOIN roles r ON r.id=ur.role_id WHERE u.id=$1
