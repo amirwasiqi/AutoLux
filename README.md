@@ -57,3 +57,8 @@ Payment checkout, rental contracts, customer/driver document verification, maint
 
 ## GitHub
 Commit source code, package manifests, lockfiles when generated, SQL migrations, documentation and `.env.example`. Do not commit `.env`, `node_modules`, database backups, real customer data or private keys.
+
+
+## Phase 5 — Google sign-in, contact inbox and admin control
+
+See [docs/PHASE-5.md](docs/PHASE-5.md) for complete configuration. New migration: `005_phase5_admin_contact.sql`. Configure Google OAuth, Resend and `CONTACT_INBOX_EMAIL`, run `npm run db:migrate`, then bootstrap the first administrator with `npm run admin:create` from the backend directory. No default administrator credentials are shipped.

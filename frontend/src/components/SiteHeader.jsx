@@ -7,7 +7,7 @@ const links = [{ label: "Home", to: "/" }, { label: "Vehicles", to: "/vehicles" 
 export default function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { user } = useAuth();
-  const canManageFleet = user?.roles?.some((role) => ["super_admin", "company_admin", "fleet_manager"].includes(role));
+  const canManageFleet = user?.roles?.some((role) => ["super_admin", "company_admin"].includes(role));
   return <header className="site-header"><div className="header-inner">
     <Link className="brand-mark" to="/" aria-label="AutoLux home"><span className="brand-symbol">A<span>·</span>L</span><span className="brand-word">AUTOLUX</span></Link>
     <nav className={`desktop-nav ${menuOpen ? "is-open" : ""}`} aria-label="Main navigation">

@@ -36,3 +36,8 @@ backups/
 .render/
 .cache/
 .tmp/
+
+# Private first-sign-in records (contains personal account data)
+backend/private-data/*.jsonl
+backend/private-data/*
+!backend/private-data/.gitkeep

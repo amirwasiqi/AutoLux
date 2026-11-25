@@ -16,6 +16,7 @@ const schema = z.object({
   COOKIE_DOMAIN: z.string().optional().default(''),
   GOOGLE_CLIENT_ID: z.string().optional().default(''),
   RESEND_API_KEY: z.string().optional().default(''),
+  CONTACT_INBOX_EMAIL: z.string().email().or(z.literal('')).default(''),
   EMAIL_FROM: z.string().default('AutoLux <no-reply@example.com>'),
   TWILIO_ACCOUNT_SID: z.string().optional().default(''),
   TWILIO_AUTH_TOKEN: z.string().optional().default(''),

@@ -1,3 +1,4 @@
+import { z } from 'zod';
 
 import * as service from './auth.service.js';
 import { registerSchema, loginSchema, tokenSchema, resetSchema, googleSchema } from './auth.schemas.js';
