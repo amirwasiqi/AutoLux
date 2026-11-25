@@ -19,6 +19,13 @@ import AdminDashboardPage from "../pages/AdminDashboardPage.jsx";
 import BookingPage from "../pages/BookingPage.jsx";
 import AdminBookingsPage from "../pages/AdminBookingsPage.jsx";
 import AdminControlPage from "../pages/AdminControlPage.jsx";
+import ShopPage from "../pages/ShopPage.jsx";
+import PaymentResultPage from "../pages/PaymentResultPage.jsx";
+import DriverVerificationPage from "../pages/DriverVerificationPage.jsx";
+import SalesPage from "../pages/SalesPage.jsx";
+import PartnerPortalPage from "../pages/PartnerPortalPage.jsx";
+import CommercialAdminPage from "../pages/CommercialAdminPage.jsx";
+import { VerifyEmailPage, ForgotPasswordPage, ResetPasswordPage } from "../pages/AccountRecoveryPages.jsx";
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -28,19 +35,26 @@ function AnimatedRoutes() {
       <Route path="/vehicles" element={<VehiclesPage />} />
       <Route path="/vehicles/:slug" element={<VehicleDetailPage />} />
       <Route element={<RequireAuth />}><Route path="/vehicles/:slug/book" element={<BookingPage />} /></Route>
-      <Route path="/shop" element={<InfoPage page="shop" />} />
+      <Route path="/shop" element={<ShopPage />} />
+      <Route path="/sales" element={<SalesPage />} />
+      <Route element={<RequireAuth />}><Route path="/partner" element={<PartnerPortalPage />} /></Route>
+      <Route path="/payment/success" element={<PaymentResultPage />} />
+      <Route path="/payment/cancel" element={<InfoPage page="payment-cancel" />} />
       <Route path="/services" element={<InfoPage page="services" />} />
       <Route path="/contact" element={<InfoPage page="contact" />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/registration-success" element={<RegistrationSuccessPage />} />
-      <Route path="/verify-email" element={<PlaceholderPage title="Verify your email" />} />
-      <Route path="/forgot-password" element={<PlaceholderPage title="Reset your password" />} />
-      <Route path="/reset-password" element={<PlaceholderPage title="Choose a new password" />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/forbidden" element={<ForbiddenPage />} />
       <Route element={<RequireAuth />}><Route path="/account" element={<AccountPage />} /></Route>
       <Route element={<RequireAuth roles={["super_admin", "company_admin"]} />}><Route path="/admin" element={<AdminControlPage />} /></Route>
-      <Route element={<RequireAuth roles={["super_admin", "company_admin", "fleet_manager"]} />}><Route path="/admin/fleet" element={<FleetManagementPage />} /><Route path="/admin/bookings" element={<AdminBookingsPage />} /></Route>
+      <Route element={<RequireAuth roles={["super_admin", "company_admin", "driver_verification_staff"]} />}><Route path="/admin/drivers" element={<DriverVerificationPage />} /></Route>
+      <Route element={<RequireAuth roles={["super_admin","company_admin","sales_manager","shop_manager","finance_staff","branch_manager","fleet_manager","rental_staff"]} />}><Route path="/admin/commercial" element={<CommercialAdminPage />} /></Route>
+      <Route element={<RequireAuth roles={["super_admin", "company_admin", "fleet_manager"]} />}><Route path="/admin/fleet" element={<FleetManagementPage />} /></Route>
+      <Route element={<RequireAuth roles={["super_admin", "company_admin", "fleet_manager", "rental_staff"]} />}><Route path="/admin/bookings" element={<AdminBookingsPage />} /></Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   </motion.div></AnimatePresence>;

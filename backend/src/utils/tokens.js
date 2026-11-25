@@ -13,3 +13,13 @@ export const signAccessToken = (user) => jwt.sign(
 export const verifyAccessToken = (token) => jwt.verify(token, env.JWT_ACCESS_SECRET, {
   issuer: 'autolux-api', audience: 'autolux-web'
 });
+
+export const signMfaChallenge = (userId) => jwt.sign(
+  { sub:userId, purpose:'mfa_challenge' }, env.JWT_ACCESS_SECRET,
+  { expiresIn:'5m', issuer:'autolux-api', audience:'autolux-mfa' }
+);
+export const verifyMfaChallenge = (token) => {
+  const claims=jwt.verify(token,env.JWT_ACCESS_SECRET,{issuer:'autolux-api',audience:'autolux-mfa'});
+  if(claims.purpose!=='mfa_challenge') throw new Error('Invalid MFA challenge.');
+  return claims;
+};

@@ -1,39 +1,13 @@
 
 import { env } from '../config/env.js';
+import { sendMail } from './email.js';
 
 export async function sendVerificationEmail(email, token) {
-  if (!env.RESEND_API_KEY) {
-    console.warn(`Email provider not configured; verification token not delivered for ${email}`);
-    return { delivered: false, reason: 'provider_not_configured' };
-  }
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: env.EMAIL_FROM,
-      to: [email],
-      subject: 'Verify your AutoLux account',
-      html: `<p>Use this verification link to activate your account:</p><p><a href="${env.FRONTEND_ORIGIN}/verify-email?token=${encodeURIComponent(token)}">Verify email</a></p>`
-    }),
-    signal: AbortSignal.timeout(10000)
-  });
-  if (!response.ok) throw new Error(`Email provider returned ${response.status}`);
-  return { delivered: true };
+  return sendMail({to:email,subject:'Verify your AutoLux account',text:`Use this link to activate your AutoLux account: ${env.FRONTEND_ORIGIN}/verify-email?token=${encodeURIComponent(token)}`});
 }
 
 export async function sendPasswordResetEmail(email, token) {
-  if (!env.RESEND_API_KEY) return { delivered: false, reason: 'provider_not_configured' };
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: env.EMAIL_FROM, to: [email], subject: 'Reset your AutoLux password',
-      html: `<p><a href="${env.FRONTEND_ORIGIN}/reset-password?token=${encodeURIComponent(token)}">Reset password</a></p>`
-    }),
-    signal: AbortSignal.timeout(10000)
-  });
-  if (!response.ok) throw new Error(`Email provider returned ${response.status}`);
-  return { delivered: true };
+  return sendMail({to:email,subject:'Reset your AutoLux password',text:`Use this link to reset your AutoLux password: ${env.FRONTEND_ORIGIN}/reset-password?token=${encodeURIComponent(token)}`});
 }
 
 export async function startPhoneVerification(phone) {

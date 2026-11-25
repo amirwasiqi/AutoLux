@@ -62,3 +62,18 @@ Commit source code, package manifests, lockfiles when generated, SQL migrations,
 ## Phase 5 — Google sign-in, contact inbox and admin control
 
 See [docs/PHASE-5.md](docs/PHASE-5.md) for complete configuration. New migration: `005_phase5_admin_contact.sql`. Configure Google OAuth, Resend and `CONTACT_INBOX_EMAIL`, run `npm run db:migrate`, then bootstrap the first administrator with `npm run admin:create` from the backend directory. No default administrator credentials are shipped.
+
+## Phase 6 commercial implementation work
+
+The original Phase 1–5 application has been extended with the Phase 6 commercial platform source foundation and workflows. See:
+
+- `docs/PHASE6-COMMERCIAL-IMPLEMENTATION-STATUS.md` for the precise implemented / incomplete / unverified status.
+- `docs/DEPLOYMENT-AND-INTEGRATIONS.md` for hosting, Gmail, Google OAuth, Stripe, PayPal, Twilio, S3/CDN, migration, and backup configuration.
+- `backend/src/db/migrations/006_commercial_platform.sql` for the Phase 6 schema migration.
+- `ops/backup-postgres.sh` and `ops/restore-postgres.sh` for manual PostgreSQL backup/restore procedures.
+
+**Important:** this package is an integrated development build, not a production-certified release. The new migration has not been run against a live PostgreSQL instance in this environment, frontend dependencies could not be installed here, and real provider credentials/sandbox tests/security review/deployment are still required. Do not hand over or publish it as production-ready until the release gates in the Phase 6 status report have passed.
+
+## Release verification status — 2026-11-25
+
+This package is **not approved for production handover**. The backend source checks and 9 backend tests pass, but the Vite build, PostgreSQL migration execution, Google/Gmail live verification, Stripe/PayPal sandbox tests, S3/CDN tests, real fleet verification, browser end-to-end testing, penetration testing, and production deployment remain unverified or blocked by missing company resources. See `docs/RELEASE-VERIFICATION-REPORT.md` for the exact results and required release gates. Run `ops/release-check.sh` in a configured build/staging environment to repeat the locally available checks.

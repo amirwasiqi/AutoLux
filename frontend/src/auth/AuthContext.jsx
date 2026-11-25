@@ -25,17 +25,19 @@ export function AuthProvider({ children }) {
 
   const login = async (credentials) => {
     const { data } = await api.post('/auth/login', credentials);
-    setAccessToken(data.data.accessToken);
-    setUser(data.data.user);
+    if (data.data.mfaRequired) return data.data;
+    setAccessToken(data.data.accessToken); setUser(data.data.user); return data.data;
   };
-  const loginGoogle = useCallback(async (idToken) => { const { data } = await api.post('/auth/google', { idToken }); setAccessToken(data.data.accessToken); const profile = await api.get('/auth/me'); setUser(profile.data.data.user); }, []);
+  const loginGoogle = useCallback(async (idToken) => { const { data } = await api.post('/auth/google', { idToken }); if(data.data.mfaRequired) return data.data; setAccessToken(data.data.accessToken); const profile = await api.get('/auth/me'); setUser(profile.data.data.user); return data.data; }, []);
+  const completeMfa = async (challengeToken, code, emailRecovery=false) => { const endpoint=emailRecovery?'/auth/mfa/email-recovery/verify':'/auth/mfa/verify'; const {data}=await api.post(endpoint,{challengeToken,code}); setAccessToken(data.data.accessToken); setUser(data.data.user); return data.data; };
+  const startEmailMfaRecovery = async (challengeToken) => api.post('/auth/mfa/email-recovery/start',{challengeToken});
   const register = async (values) => api.post('/auth/register', values);
   const logout = async () => {
     try { await api.post('/auth/logout'); }
     finally { setAccessToken(null); setUser(null); }
   };
 
-  const value = useMemo(() => ({ user, loading, login, loginGoogle, register, logout, reload: loadUser }),
+  const value = useMemo(() => ({ user, loading, login, loginGoogle, completeMfa, startEmailMfaRecovery, register, logout, reload: loadUser }),
     [user, loading, loadUser, loginGoogle]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
