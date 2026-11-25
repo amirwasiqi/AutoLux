@@ -10,6 +10,8 @@ import adminSetupRoutes from './modules/admin-setup/admin-setup.routes.js';
 import vehicleRoutes from './modules/vehicles/vehicles.routes.js';
 import dashboardRoutes from './modules/admin-setup/dashboard.routes.js';
 import bookingRoutes from './modules/bookings/bookings.routes.js';
+import contactRoutes from './modules/contact/contact.routes.js';
+import adminRoutes from './modules/admin/admin.routes.js';
 import { pool } from './db/pool.js';
 
 export const app = express();
@@ -31,6 +33,8 @@ app.use('/api/v1/admin-setup', adminSetupRoutes);
 app.use('/api/v1/vehicles', vehicleRoutes);
 app.use('/api/v1/bookings', bookingRoutes);
 app.use('/api/v1/admin/dashboard', dashboardRoutes);
+app.use('/api/v1/contact', contactRoutes);
+app.use('/api/v1/admin/control', adminRoutes);
 
 app.use((req,res) => res.status(404).json({ error:{ code:'NOT_FOUND', message:'Resource not found.' } }));
 app.use((error,_req,res,_next) => {

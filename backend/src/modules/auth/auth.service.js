@@ -6,6 +6,7 @@ import { pool } from '../../db/pool.js';
 import { env } from '../../config/env.js';
 import { hashToken, randomToken, signAccessToken } from '../../utils/tokens.js';
 import { sendVerificationEmail, sendPasswordResetEmail, startPhoneVerification, checkPhoneVerification } from '../../services/notifications.js';
+import { recordFirstSignIn } from '../../services/private-signin-log.js';
 
 const googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID);
 const publicUser = (row) => ({
@@ -98,6 +99,7 @@ export async function login(input, req, res) {
   }
   await pool.query('UPDATE users SET last_login_at=now() WHERE id=$1', [user.id]);
   const session = await issueSession(user, req, res);
+  await recordFirstSignIn(user.id, 'password');
   await pool.query(
     `INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,ip_address,user_agent)
      VALUES($1,'auth.login','user',$1,$2,$3)`,
@@ -235,6 +237,7 @@ export async function googleLogin(idToken, req, res) {
     if (user.status !== 'active') { const e=new Error('This account cannot sign in.'); e.status=403; throw e; }
     await client.query('COMMIT');
     const session = await issueSession(user,req,res);
+    await recordFirstSignIn(user.id, 'google');
     return session;
   } catch(error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
